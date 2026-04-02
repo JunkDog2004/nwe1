@@ -1,92 +1,145 @@
 import streamlit as st
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pickle
+import time
 
-# Import your custom modules (Make sure these files exist in your folder!)
-# import agent
+# Optional: Import your actual scripts here once they are ready
+# from flaml import AutoML 
+# import agent 
 # import pipeline
-# import predictor_ui
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="Gemini AutoML Pipeline",
-    page_icon="⚡",
-    layout="wide"
+# --- Page Configuration ---
+st.set_page_config(page_title="AutoML App", layout="wide", initial_sidebar_state="expanded")
+
+# --- Sidebar Navigation ---
+st.sidebar.title("Navigation 🧭")
+st.sidebar.write("Switch between building your model and using it.")
+st.sidebar.write("Go to:")
+page = st.sidebar.radio(
+    "Navigation",
+    ["🛠️ Build Pipeline", "🚀 Predictor UI"],
+    label_visibility="collapsed"
 )
 
-def main():
-    # --- SIDEBAR NAVIGATION ---
-    st.sidebar.title("Navigation 🧭")
-    st.sidebar.markdown("Switch between building your model and using it.")
+# ==========================================
+# PAGE 1: BUILD PIPELINE
+# ==========================================
+if page == "🛠️ Build Pipeline":
+    st.title("🛠️ Build Pipeline")
+    st.write("Upload your data, clean it with Gemini, and train it with FLAML.")
     
-    # The radio button acts as our page router
-    page = st.sidebar.radio(
-        "Go to:", 
-        ["🛠️ Build Pipeline", "🚀 Predictor UI"]
-    )
+    st.divider()
 
-    # --- PAGE 1: BUILD PIPELINE ---
-    if page == "🛠️ Build Pipeline":
-        st.title("⚡ AutoML & Gemini Pipeline Builder")
-        st.markdown("Upload your dataset to get AI-powered cleaning suggestions and train a model automatically.")
+    # --- 1. Data Upload & EDA ---
+    st.subheader("Data Upload & Exploration")
+    uploaded_file = st.file_uploader("Upload your dataset", type=["csv", "txt", "xlsx"])
 
-        # 1. File Uploader
-        uploaded_file = st.file_uploader("Upload your CSV dataset", type=["csv"])
-
-        if uploaded_file is not None:
-            # Read the uploaded CSV
-            df = pd.read_csv(uploaded_file)
-            
-            st.success("Dataset uploaded successfully!")
-            
-            # Show a preview of the raw data
-            st.subheader("Raw Data Preview")
+    if uploaded_file is not None:
+        # Read the file based on its extension
+        file_extension = uploaded_file.name.split('.')[-1]
+        
+        try:
+            if file_extension == "csv":
+                df = pd.read_csv(uploaded_file)
+            elif file_extension == "txt":
+                df = pd.read_csv(uploaded_file, sep='\t') 
+            elif file_extension == "xlsx":
+                df = pd.read_excel(uploaded_file)
+                
+            st.success("Data loaded successfully!")
             st.dataframe(df.head())
             
-            st.divider()
+            with st.expander("📊 View Exploratory Data Analysis (EDA)"):
+                st.write("**Statistical Summary:**")
+                st.dataframe(df.describe())
+                
+                numeric_df = df.select_dtypes(include=['float64', 'int64'])
+                if not numeric_df.empty:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Numeric Feature Distributions**")
+                        st.line_chart(numeric_df)
+                    
+                    with col2:
+                        st.write("**Correlation Matrix**")
+                        fig, ax = plt.subplots(figsize=(8, 5))
+                        sns.heatmap(numeric_df.corr(), annot=True, cmap="Blues", ax=ax, fmt=".2f")
+                        fig.patch.set_facecolor('none') 
+                        ax.set_facecolor('none')
+                        st.pyplot(fig)
+                        
+            # Save dataframe to session state so the AI and AutoML tools can access it later
+            st.session_state['dataset'] = df
 
-            # --- PLACEHOLDERS FOR YOUR AI LOGIC ---
-            # This is where you will connect your agent.py and pipeline.py later
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("🧠 1. AI Task & Cleaning")
-                if st.button("Ask Gemini for Analysis"):
-                    st.info("Agent is thinking... (You will connect agent.py here!)")
-                    # Example of what you will add later:
-                    # task_type = agent.detect_task(df)
-                    # st.write(f"Detected Task: **{task_type}**")
-                    # suggestions = agent.get_cleaning_suggestions(df)
-                    # st.write(suggestions)
-            
-            with col2:
-                st.subheader("🤖 2. AutoML Training")
-                if st.button("Run FLAML Training"):
-                    st.info("FLAML is training... (You will connect pipeline.py here!)")
-                    # Example of what you will add later:
-                    # pipeline.train_flaml_model(df)
-                    # st.success("Model saved to outputs/best_model.pkl")
+        except Exception as e:
+            st.error(f"Error loading file: {e}")
 
-    # --- PAGE 2: PREDICTOR UI ---
-    elif page == "🚀 Predictor UI":
-        st.title("🚀 Model Deployment & Prediction")
-        st.markdown("Use your trained model to make predictions on new data.")
-        
-        # Check if a model actually exists before trying to load the UI
-        if os.path.exists("outputs/best_model.pkl"):
-            st.success("Trained model found! Ready for predictions.")
-            
-            # Call the render function from your predictor_ui.py file
-            # predictor_ui.render_page()
-            
-            st.info("(You will connect predictor_ui.py here to show the input sliders and buttons!)")
-        else:
-            st.warning("No trained model found. Please go to the 'Build Pipeline' page and train a model first.")
+    st.divider()
 
-if __name__ == "__main__":
-    # Ensure the outputs folder exists to avoid file save errors later
-    os.makedirs("outputs", exist_ok=True)
+    # --- 2. Action Buttons Layout (Matching your screenshot) ---
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("🧠 1. AI Task & Cleaning")
+        if st.button("Ask Gemini for Analysis"):
+            with st.spinner("Agent is thinking..."):
+                # TODO: Connect your agent.py here
+                # example: response = agent.run_analysis(st.session_state['dataset'])
+                time.sleep(2) # Simulating processing time
+                st.info("Gemini analysis complete! (Placeholder: Connect agent.py to show real results here)")
+
+    with col2:
+        st.subheader("🤖 2. AutoML Training")
+        if st.button("Run FLAML Training"):
+            if 'dataset' not in st.session_state:
+                st.error("Please upload a dataset first!")
+            else:
+                with st.spinner("FLAML is training..."):
+                    # TODO: Connect your pipeline.py or FLAML code here
+                    time.sleep(3) # Simulating training time
+                    
+                    # Dummy model creation for demonstration purposes
+                    # Replace this with your actual fitted FLAML model: `model = automl`
+                    dummy_model = {"model_name": "FLAML_Classifier", "status": "trained"} 
+                    
+                    # Save the model
+                    with open("trained_model.pkl", "wb") as f:
+                        pickle.dump(dummy_model, f)
+                        
+                    st.success("Training complete! Model saved successfully.")
+
+# ==========================================
+# PAGE 2: PREDICTOR UI
+# ==========================================
+elif page == "🚀 Predictor UI":
+    st.title("🚀 Model Deployment & Prediction")
+    st.write("Use your trained model to make predictions on new data.")
     
-    # Run the main app
-    main()
+    st.divider()
+
+    try:
+        # Attempt to load the model
+        with open("trained_model.pkl", "rb") as f:
+            model = pickle.load(f)
+            
+        st.success("Trained model found and loaded successfully!")
+        
+        # --- Prediction Interface ---
+        st.subheader("Make a Prediction")
+        st.write("Enter the values for your features below:")
+        
+        # Example input fields (You will need to adjust these based on your dataset's columns)
+        feature_1 = st.number_input("Feature 1", value=0.0)
+        feature_2 = st.number_input("Feature 2", value=0.0)
+        
+        if st.button("Predict"):
+            # TODO: Run the actual prediction
+            # prediction = model.predict([[feature_1, feature_2]])
+            st.write(f"**Prediction Result:** [Connect model.predict() here]")
+            
+    except FileNotFoundError:
+        # If the file isn't there, show your exact warning
+        st.warning("No trained model found. Please go to the 'Build Pipeline' page and train a model first.")
